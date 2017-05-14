@@ -503,6 +503,26 @@ impl<A: Transaction, R: rand::Rng> T<A, R> {
         realpath.pop();
         Ok(())
     }
+
+    /// Compares the recorded state of a branch with the actual state of the filesystem.
+    /// 
+    /// Returns the set of changes that need to be done to the branch in order to make it agree
+    /// with the filesystem.
+    pub fn collect_changes(&self, branch: &Branch, repo_root: &std::path::Path)
+        -> Result<(Vec<Record>, Vec<InodeUpdate>), Error>
+    {
+        let mut st = RecordState {
+            line_num: LineId::new() + 1,
+            actions: Vec::new(),
+            updatables: Vec::new(),
+            redundant: Vec::new(),
+        };
+        let mut repo_root = repo_root.to_owned();
+        self.record_root(&branch, &mut st, &mut repo_root)?;
+        debug!("done collecting changes, {} changes", st.actions.len());
+        debug!("changes: {:?}", st.actions);
+        Ok((st.actions, st.updatables))
+    }
 }
 
 impl<'env, T: rand::Rng> MutTxn<'env, T> {
