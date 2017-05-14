@@ -1,29 +1,30 @@
+extern crate app_dirs;
+extern crate chrono;
 #[macro_use]
 extern crate clap;
-#[macro_use]
-extern crate log;
 extern crate env_logger;
-extern crate libpijul;
+extern crate flate2;
+extern crate futures;
 extern crate getch;
-extern crate toml;
-extern crate regex;
 extern crate hyper;
 extern crate hyper_rustls;
-extern crate chrono;
-extern crate thrussh;
-extern crate rustc_serialize;
-extern crate term;
+extern crate libpijul;
+#[macro_use]
+extern crate log;
 extern crate rand;
-extern crate tokio_core;
-extern crate futures;
-extern crate user;
-extern crate shell_escape;
+extern crate regex;
+extern crate rustc_serialize;
 extern crate rustyline;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+extern crate shell_escape;
 extern crate tar;
-extern crate flate2;
-// #[macro_use]
-// extern crate serde_derive;
-// extern crate serde;
+extern crate term;
+extern crate thrussh;
+extern crate tokio_core;
+extern crate toml;
+extern crate user;
 
 mod error;
 mod commands;

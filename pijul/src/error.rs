@@ -3,8 +3,7 @@ use std::error;
 use std::fmt;
 use std::string;
 use std::path;
-use {thrussh, libpijul, rustc_serialize, hyper, rustyline, term};
-// use toml;
+use {app_dirs, thrussh, libpijul, rustc_serialize, hyper, rustyline, term, toml};
 
 #[derive(Debug)]
 pub enum Error {
@@ -18,9 +17,8 @@ pub enum Error {
     Hex(rustc_serialize::hex::FromHexError),
     SSH(thrussh::Error),
     Hyper(hyper::error::Error),
-    // TomlDe(toml::de::Error),
-    // TomlSer(toml::ser::Error),
-    MetaDecoding,
+    MetaDecoding(toml::de::Error),
+    MetaEncoding(toml::ser::Error),
     MissingRemoteRepository,
     PatchNotFound(String, libpijul::Hash),
     InvalidPath(String),
@@ -29,6 +27,7 @@ pub enum Error {
     CannotDeleteCurrentBranch,
     NoSuchBranch,
     IsDirectory,
+    AppDirsError(app_dirs::AppDirsError),
 }
 
 impl Error {
@@ -53,7 +52,8 @@ impl fmt::Display for Error {
             Error::Hex(ref err) => write!(f, "Hex: {}", err),
             Error::Hyper(ref err) => write!(f, "Hyper: {}", err),
             Error::UTF8(ref err) => write!(f, "UTF8Error: {}", err),
-            Error::MetaDecoding => write!(f, "MetaDecoding"),
+            Error::MetaDecoding(ref err) => write!(f, "Error reading config: {}", err),
+            Error::MetaEncoding(ref err) => write!(f, "Error writing config: {}", err),
             Error::MissingRemoteRepository => write!(f, "Missing remote repository"),
             Error::PatchNotFound(ref path, ref hash) => {
                 write!(f, "Patch {:?} not found in {}", hash, path)
@@ -64,6 +64,7 @@ impl fmt::Display for Error {
             Error::CannotDeleteCurrentBranch => write!(f, "Cannot delete current branch"),
             Error::NoSuchBranch => write!(f, "No such branch"),
             Error::IsDirectory => write!(f, "Is a directory"),
+            Error::AppDirsError(ref err) => write!(f, "Error finding configuration path: {}", err),
             // Error::TomlDe(ref e) => write!(f, "Toml de err: {}", e),
             // Error::TomlSer(ref e) => write!(f, "Toml ser err: {}", e),
         }
@@ -83,7 +84,8 @@ impl error::Error for Error {
             Error::Hex(ref err) => err.description(),
             Error::Hyper(ref err) => err.description(),
             Error::UTF8(ref err) => err.description(),
-            Error::MetaDecoding => "Error in the decoding of metadata",
+            Error::MetaDecoding(_) => "Error when reading the configuration file",
+            Error::MetaEncoding(_) => "Error when writing the configuration file",
             Error::MissingRemoteRepository => "Missing remote repository",
             Error::PatchNotFound(_, _) => "Patch not found",
             Error::InvalidPath(_) => "Invalid path",
@@ -92,6 +94,7 @@ impl error::Error for Error {
             Error::CannotDeleteCurrentBranch => "Cannot delete current branch",
             Error::NoSuchBranch => "No such branch",
             Error::IsDirectory => "Is a directory",
+            Error::AppDirsError(ref err) => err.description(),
             // Error::TomlDe(ref e) => e.description(),
             // Error::TomlSer(ref e) => e.description(),
         }
@@ -109,7 +112,8 @@ impl error::Error for Error {
             Error::Hex(ref err) => Some(err),
             Error::Hyper(ref err) => Some(err),
             Error::UTF8(ref err) => Some(err),
-            Error::MetaDecoding => None,
+            Error::MetaDecoding(ref err) => Some(err),
+            Error::MetaEncoding(ref err) => Some(err),
             Error::MissingRemoteRepository => None,
             Error::PatchNotFound(_, _) => None,
             Error::InvalidPath(_) => None,
@@ -118,6 +122,7 @@ impl error::Error for Error {
             Error::CannotDeleteCurrentBranch => None,
             Error::NoSuchBranch => None,
             Error::IsDirectory => None,
+            Error::AppDirsError(ref err) => Some(err),
             // Error::TomlDe(ref err) => Some(err),
             // Error::TomlSer(ref err) => Some(err),
         }
@@ -183,16 +188,21 @@ impl From<term::Error> for Error {
         Error::Term(e)
     }
 }
-/*
+
 impl From<toml::de::Error> for Error {
     fn from(e: toml::de::Error) -> Error {
-        Error::TomlDe(e)
+        Error::MetaDecoding(e)
     }
 }
 
 impl From<toml::ser::Error> for Error {
     fn from(e: toml::ser::Error) -> Error {
-        Error::TomlSer(e)
+        Error::MetaEncoding(e)
     }
 }
-*/
+
+impl From<app_dirs::AppDirsError> for Error {
+    fn from(e: app_dirs::AppDirsError) -> Error {
+        Error::AppDirsError(e)
+    }
+}

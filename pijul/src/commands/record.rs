@@ -7,7 +7,7 @@ use std::mem::drop;
 use error::Error;
 
 use std::path::Path;
-use meta::Meta;
+use meta::{GlobalMeta, Meta};
 use commands::{ask, get_wd};
 use rustc_serialize::base64::{ToBase64, URL_SAFE};
 use super::get_current_branch;
@@ -104,44 +104,41 @@ pub fn run(args: &Params) -> Result<Option<Hash>, Error> {
                 let repo = Repository::open(&pristine_dir, None).map_err(Error::Repository)?;
                 let patch = {
                     let txn = repo.txn_begin()?;
-                    let mut save_meta = false;
-                    let mut meta = match Meta::load(r) {
-                        Ok(m) => m,
-                        Err(_) => {
-                            save_meta = true;
-                            Meta::new()
-                        }
-                    };
+                    let meta = Meta::load(r);
                     debug!("meta:{:?}", meta);
+
                     let authors: Vec<String> = if let Some(ref authors) = args.authors {
-                        let authors: Vec<String> = authors.iter().map(|x| x.to_string()).collect();
-                        {
-                            if meta.default_authors.len() == 0 {
-                                meta.default_authors = authors.clone();
-                                save_meta = true
-                            }
-                        }
-                        authors
-                    } else {
-                        if meta.default_authors.len() > 0 {
+                        authors.iter().map(|x| x.to_string()).collect()
+                    } else if meta.default_authors.len() > 0 {
                             meta.default_authors.clone()
-                        } else {
-                            save_meta = true;
-                            let authors = try!(ask::ask_authors());
-                            meta.default_authors = authors.clone();
-                            authors
-                        }
+                    } else {
+                        ask::ask_authors()?
                     };
                     debug!("authors:{:?}", authors);
+
                     let patch_name = if let Some(ref m) = args.patch_name {
                         m.to_string()
                     } else {
                         try!(ask::ask_patch_name())
                     };
                     debug!("patch_name:{:?}", patch_name);
-                    if save_meta {
-                        try!(meta.save(r))
+
+                    if meta.default_authors.is_empty() {
+                        println!("From now on, the author you just entered will be used by default.");
+                        println!("To change the default value, edit one of pijul's configuration files.");
+                        if let Err(global_err) = GlobalMeta::save_default_authors(&authors) {
+                            println!(
+                                "Warning: failed to save default authors in system-wide configuration: {}",
+                                global_err);
+                            if let Err(local_err) = Meta::save_default_authors(r, &authors) {
+                                println!(
+                                    "Warning: failed to save default authors in repo-wide configuration: {}",
+                                    local_err);
+                            }
+                        }
+                        Meta::print_meta_info(r);
                     }
+
                     debug!("new");
                     let changes = changes.into_iter().flat_map(|x| x.into_iter()).collect();
                     let branch = txn.get_branch(&branch_name).unwrap();

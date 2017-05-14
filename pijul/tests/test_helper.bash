@@ -1,18 +1,16 @@
 setup() {
-  # Since the home directory might contain a pijul configuration file, make
-  # sure we start with a clean home directory.
-  export HOME="$BATS_TMPDIR"
   # TODO: this is currently only for testing debug builds, but it should be configurable.
   export PATH="$BATS_TEST_DIRNAME/../target/debug:/usr/bin"
 
-  # Since BATS_TMPDIR could easily be part of an existing pijul repository,
-  # make a tmpdir somewhere else for putting repos in.
+  # Make a clean tmpdir for putting repos in (hopefully, it won't be put in an
+  # existing pijul repo).
   export PIJUL_REPO_DIR=`mktemp -d`
   cd $PIJUL_REPO_DIR
-}
 
-new_dir() {
-  cd `mktemp -d -p $PIJUL_REPO_DIR`
+  # Since the home directory might contain a pijul configuration file, make
+  # sure we start with a clean home directory.
+  mkdir HOME
+  export HOME=`pwd`/HOME
 }
 
 teardown() {

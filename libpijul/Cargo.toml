@@ -28,8 +28,10 @@ include = [
 ]
 
 [dependencies]
+bincode = { git = "https://github.com/TyOverby/bincode.git" }
 bitflags = "0.8"
 byteorder = "1.0"
+chrono = { version = "0.3", features = [ "serde" ] }
 flate2 = "0.2"
 libc = "0.2"
 log = "0.3"
@@ -37,7 +39,5 @@ rand = "0.3"
 ring = "0.9"
 rustc-serialize = "0.3.23"
 sanakirja = "0.8.7"
-chrono = { version = "0.3", features = [ "serde" ] }
 serde = "1.0"
 serde_derive = "1.0"
-bincode = "0.8"

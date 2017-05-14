@@ -141,7 +141,7 @@ pub fn run(args: &Params) -> Result<(), Error> {
     match find_repo_root(&wd) {
         None => return Err(Error::NotInARepository),
         Some(ref r) => {
-            let meta = Meta::load(r).unwrap_or(Meta::new());
+            let meta = Meta::load(r);
             let (savable, remote) = try!(get_remote(&args, &meta, r));
             let mut session = try!(remote.session());
             let pullable = try!(select_patches(!args.yes_to_all,
@@ -155,21 +155,14 @@ pub fn run(args: &Params) -> Result<(), Error> {
             try!(session.pull(r, args.local_branch, &pullable));
             info!("Saving meta");
             if args.set_default && savable {
-                let mut meta = match Meta::load(r) {
-                    Ok(m) => m,
-                    Err(_) => Meta::new(),
-                };
                 if let Some(remote_id) = args.remote_id {
-                    if let Some(p) = args.port {
-                        meta.pull = Some(Repository::SSH {
-                            address: remote_id.to_string(),
-                            port: p,
-                        });
+                    let pull = if let Some(p) = args.port {
+                        Repository::SSH { address: remote_id.to_string(), port: p }
                     } else {
-                        meta.pull = Some(Repository::String(remote_id.to_string()))
-                    }
+                        Repository::String(remote_id.to_string())
+                    };
+                    Meta::save_pull(r, pull)?;
                 }
-                try!(meta.save(r));
             }
             Ok(())
         }

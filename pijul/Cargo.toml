@@ -45,33 +45,30 @@ include = [
 ]
 
 [dependencies]
-clap = "2.24"
-regex = "0.2"
-rand = "0.3"
-log = "0.3"
+app_dirs = "1.1"
 chrono = "0.3"
+clap = "2.24"
 env_logger = "0.4"
-
+flate2 = "0.2"
 futures = "0.1"
-tokio-core = "0.1"
-thrussh = "0.10"
-
+getch = "0.1"
 hyper = { version = "0.10", default-features = false }
 hyper-rustls = "0.4"
-
-toml = "0.2"
-rustc-serialize = "0.3"
-
-term = "0.4"
-
-getch = "0.1"
-user = "0.1"
-shell-escape = "0.1"
 libpijul = { path = "../libpijul" }
-
+log = "0.3"
+rand = "0.3"
+regex = "0.2"
+rustc-serialize = "0.3"
 rustyline = "1.0"
+serde = "1.0"
+serde_derive = "1.0"
+shell-escape = "0.1"
 tar = "0.4"
-flate2 = "0.2"
+term = "0.4"
+thrussh = "0.10"
+tokio-core = "0.1"
+toml = "0.4"
+user = "0.1"
 
 [dev-dependencies]
 tempdir = "0.3"

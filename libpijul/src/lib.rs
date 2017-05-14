@@ -1,20 +1,19 @@
-#[macro_use]
-extern crate log;
-extern crate chrono;
+extern crate bincode;
 #[macro_use]
 extern crate bitflags;
-
-extern crate sanakirja;
 extern crate byteorder;
+extern crate chrono;
 extern crate flate2;
-extern crate ring;
 extern crate libc;
+#[macro_use]
+extern crate log;
 extern crate rand;
+extern crate ring;
 extern crate rustc_serialize;
+extern crate sanakirja;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
-extern crate bincode;
 
 use std::path::Path;
 use std::collections::{HashMap, HashSet};
@@ -34,17 +33,17 @@ pub trait RepositoryEnv<'env, R>: Sized {
 
 #[macro_use]
 mod backend;
-pub mod fs_representation;
-pub mod file_operations;
 
-pub mod patch;
-pub mod conflict;
-pub mod graph;
-mod optimal_diff;
-mod record;
 mod apply;
+mod optimal_diff;
 mod output;
+mod record;
 mod unrecord;
+pub mod conflict;
+pub mod file_operations;
+pub mod fs_representation;
+pub mod graph;
+pub mod patch;
 
 pub use backend::{
     DEFAULT_BRANCH, Repository, MutTxn, LineId, PatchId, FOLDER_EDGE, PARENT_EDGE, DELETED_EDGE,

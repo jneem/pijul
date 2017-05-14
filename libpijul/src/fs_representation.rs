@@ -39,10 +39,6 @@ pub fn branch_changes_file(p: &Path, b: &str) -> PathBuf {
     p.join(PIJUL_DIR_NAME).join(branch_changes_base_path(b))
 }
 
-pub fn meta_file(p: &Path) -> PathBuf {
-    p.join(PIJUL_DIR_NAME).join("meta.toml")
-}
-
 pub fn id_file(p: &Path) -> PathBuf {
     p.join(PIJUL_DIR_NAME).join("id")
 }
