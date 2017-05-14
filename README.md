@@ -1,3 +1,7 @@
+# This is a temporary fork of pijul!
+
+The real repository is [here](http://nest.pijul.com/pijul_org/pijul), but I was running into some corruption bugs.
+
 # Pijul
 
 Pijul is a version control system based on *patches*, that can mimic
