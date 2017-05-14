@@ -1,0 +1,43 @@
+[package]
+name = "libpijul"
+description = "A patch-based distributed version control system, easy to use and fast."
+version = "0.5.9"
+authors = ["Pierre-Étienne Meunier","Florent Becker"]
+license = "GPL-2.0+"
+homepage = "https://pijul.org/"
+documentation = "https://docs.rs/libpijul"
+repository = "https://nest.pijul.com/pijul_org/pijul"
+
+include = [
+  "Cargo.toml", "COPYING",
+  "src/copyright",
+  "src/record.rs",
+  "src/optimal_diff.rs",
+  "src/unrecord.rs",
+  "src/apply.rs",
+  "src/backend.rs",
+  "src/patch.rs",
+  "src/lib.rs",
+  "src/error.rs",
+  "src/log",
+  "src/graph.rs",
+  "src/output.rs",
+  "src/conflict.rs",
+  "src/file_operations.rs",
+  "src/fs_representation.rs"
+]
+
+[dependencies]
+bitflags = "0.8"
+byteorder = "1.0"
+flate2 = "0.2"
+libc = "0.2"
+log = "0.3"
+rand = "0.3"
+ring = "0.9"
+rustc-serialize = "0.3.23"
+sanakirja = "0.8.7"
+chrono = { version = "0.3", features = [ "serde" ] }
+serde = "1.0"
+serde_derive = "1.0"
+bincode = "0.8"
