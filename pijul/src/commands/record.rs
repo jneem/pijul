@@ -1,12 +1,10 @@
 use clap::{SubCommand, ArgMatches, Arg};
 use chrono;
-use commands::StaticSubcommand;
+use commands::{StaticSubcommand, default_explain};
 use libpijul::{Repository, DEFAULT_BRANCH, Hash, InodeUpdate, Patch};
 use libpijul::fs_representation::{pristine_dir, find_repo_root};
 use std::mem::drop;
 use error::Error;
-use std::io::{stderr, Write};
-use std::process::exit;
 
 use std::path::Path;
 use meta::Meta;
@@ -178,11 +176,5 @@ fn record_no_resize(pristine_dir: &Path, r: &Path, branch_name: &str, patch: &Pa
 }
 
 pub fn explain(res: Result<Option<Hash>, Error>) {
-    match res {
-        Ok(_) => (),
-        Err(e) => {
-            write!(stderr(), "error: {}", e).unwrap();
-            exit(1)
-        }
-    }
+    default_explain(res)
 }

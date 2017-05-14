@@ -54,11 +54,11 @@ pub fn explain(r: Result<(), Error>) {
     match r {
         Ok(_) => (),
         Err(Error::InARepository(p)) => {
-            write!(stderr(), "Repository {} already exists", p.display()).unwrap();
+            writeln!(stderr(), "Repository {} already exists", p.display()).unwrap();
             exit(1)
         },
         Err(e) => {
-            write!(stderr(), "error: {}", e).unwrap();
+            writeln!(stderr(), "error: {}", e).unwrap();
             exit(1)
         }
     }

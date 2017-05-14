@@ -1,10 +1,8 @@
 use clap::{SubCommand, ArgMatches, Arg};
-use commands::StaticSubcommand;
+use commands::{StaticSubcommand, default_explain};
 use libpijul::{Repository, DEFAULT_BRANCH};
 use libpijul::fs_representation::{pristine_dir, find_repo_root};
 use error::Error;
-use std::io::{stderr, Write};
-use std::process::exit;
 
 use std::path::Path;
 use commands::get_wd;
@@ -63,11 +61,5 @@ pub fn run(args: &Params) -> Result<(), Error> {
 }
 
 pub fn explain(res: Result<(), Error>) {
-    match res {
-        Ok(_) => (),
-        Err(e) => {
-            write!(stderr(), "error: {}", e).unwrap();
-            exit(1)
-        }
-    }
+    default_explain(res)
 }

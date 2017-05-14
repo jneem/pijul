@@ -117,11 +117,11 @@ pub fn explain(res: Result<(), Error>) {
     match res {
         Ok(()) => (),
         Err(Error::InARepository(p)) => {
-            write!(stderr(), "error: Cannot clone onto / into existing repository {}", p.display()).unwrap();
+            writeln!(stderr(), "error: Cannot clone onto / into existing repository {}", p.display()).unwrap();
             exit(1)
         },
         Err(e) => {
-            write!(stderr(), "error: {}", e).unwrap();
+            writeln!(stderr(), "error: {}", e).unwrap();
             exit(1)
         }
     }

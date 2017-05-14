@@ -102,7 +102,7 @@ fn default_explain<R>(command_result: Result<R, Error>) {
     match command_result {
         Ok(_) => (),
         Err(e) => {
-            write!(stderr(), "error: {}", e).unwrap();
+            writeln!(stderr(), "error: {}", e).unwrap();
             exit(1)
         }
     }
