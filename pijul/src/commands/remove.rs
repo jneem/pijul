@@ -12,6 +12,7 @@ pub fn invocation() -> StaticSubcommand {
             .help("Files to remove from the repository.")
             .required(true))
         .arg(Arg::with_name("repository")
+            .takes_value(true)
             .long("repository")
             .help("Repository to remove files from."));
 }
