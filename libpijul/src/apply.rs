@@ -1050,7 +1050,7 @@ impl<'env, T: rand::Rng> MutTxn<'env, T> {
 
         let internal = {
             if let Some(internal) = self.get_internal(patch_hash.as_ref()) {
-                if self.get_patch(&branch.patches, internal).is_some() {
+                if self.get_patch(&branch.patches, &internal).is_some() {
                     None
                 } else {
                     // Doesn't have patch, but the patch is known in

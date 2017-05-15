@@ -12,7 +12,6 @@ mod patch_id {
     // Patch Identifiers.
     pub const PATCH_ID_SIZE: usize = 8;
     pub const ROOT_PATCH_ID: PatchId = PatchId([0; PATCH_ID_SIZE]);
-    pub const P_ROOT_PATCH_ID: &'static PatchId = &PatchId([0; PATCH_ID_SIZE]);
 
     #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
     pub struct PatchId([u8; PATCH_ID_SIZE]);
@@ -46,10 +45,8 @@ mod patch_id {
             &mut self.0
         }
     }
-    #[derive(Debug, Clone, Copy)]
-    pub struct UnsafePatchId(*const PatchId);
 
-    impl Representable for UnsafePatchId {
+    impl Representable for PatchId {
         fn alignment() -> Alignment {
             Alignment::B1
         }
@@ -58,27 +55,19 @@ mod patch_id {
         }
         unsafe fn write_value(&self, p: *mut u8) {
             trace!("write_value {:?}", p);
-            std::ptr::copy(self.0, p as *mut PatchId, 1)
+            std::ptr::copy(self as *const PatchId, p as *mut PatchId, 1)
         }
         unsafe fn read_value(p: *const u8) -> Self {
             trace!("read_value {:?}", p);
-            UnsafePatchId(p as *const PatchId)
+            let mut ret = PatchId::new();
+            std::ptr::copy(p as *const PatchId, &mut ret as *mut PatchId, 1);
+            ret
         }
         unsafe fn cmp_value<T>(&self, _: &T, x: Self) -> std::cmp::Ordering {
-            let a: &PatchId = &*self.0;
-            let b: &PatchId = PatchId::from_unsafe(x);
-            a.cmp(b)
+            self.cmp(&x)
         }
         type PageOffsets = std::iter::Empty<u64>;
         fn page_offsets(&self) -> Self::PageOffsets { std::iter::empty() }
-    }
-    impl PatchId {
-        pub fn to_unsafe(&self) -> UnsafePatchId {
-            UnsafePatchId(self)
-        }
-        pub unsafe fn from_unsafe<'a>(p: UnsafePatchId) -> &'a PatchId {
-            &*p.0
-        }
     }
 }
 
@@ -1038,9 +1027,9 @@ pub type ApplyTimestamp = u64;
 
 /// The u64 is the epoch time in seconds when this patch was applied
 /// to the repository.
-type PatchSet = sanakirja::Db<self::patch_id::UnsafePatchId, ApplyTimestamp>;
+type PatchSet = sanakirja::Db<self::patch_id::PatchId, ApplyTimestamp>;
 
-type RevPatchSet = sanakirja::Db<ApplyTimestamp, self::patch_id::UnsafePatchId>;
+type RevPatchSet = sanakirja::Db<ApplyTimestamp, self::patch_id::PatchId>;
 
 pub struct Dbs {
     /// A map of the files in the working copy.
@@ -1054,12 +1043,12 @@ pub struct Dbs {
     /// Text contents of keys.
     contents: sanakirja::Db<self::key::UnsafeKey, sanakirja::value::UnsafeValue>,
     /// A map from external patch hashes to internal ids.
-    internal: sanakirja::Db<self::hash::UnsafeHash, self::patch_id::UnsafePatchId>,
+    internal: sanakirja::Db<self::hash::UnsafeHash, self::patch_id::PatchId>,
     /// The reverse of internal.
-    external: sanakirja::Db<self::patch_id::UnsafePatchId, self::hash::UnsafeHash>,
+    external: sanakirja::Db<self::patch_id::PatchId, self::hash::UnsafeHash>,
     /// A reverse map of patch dependencies, i.e. (k,v) is in this map
     /// means that v depends on k.
-    revdep: sanakirja::Db<self::patch_id::UnsafePatchId, self::patch_id::UnsafePatchId>,
+    revdep: sanakirja::Db<self::patch_id::PatchId, self::patch_id::PatchId>,
     /// A map from branch names to graphs.
     branches: sanakirja::Db<self::small_string::UnsafeSmallStr, (NodesDb, PatchSet, RevPatchSet, u64)>,
 }
@@ -1351,42 +1340,30 @@ impl<'a, T: Transaction + 'a> Iterator for BranchIterator<'a, T> {
 }
 
 
-pub struct PatchesIterator<'a, T: Transaction + 'a>(Cursor<'a, T, UnsafePatchId, ApplyTimestamp>);
+pub struct PatchesIterator<'a, T: Transaction + 'a>(Cursor<'a, T, PatchId, ApplyTimestamp>);
 
 impl<'a, T: Transaction + 'a> Iterator for PatchesIterator<'a, T> {
-    type Item = (&'a PatchId, ApplyTimestamp);
+    type Item = (PatchId, ApplyTimestamp);
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some((k, v)) = self.0.next() {
-            unsafe { Some((PatchId::from_unsafe(k), v)) }
-        } else {
-            None
-        }
+        self.0.next()
     }
 }
 
-pub struct RevAppliedIterator<'a, T: Transaction + 'a>(RevCursor<'a, T, ApplyTimestamp, UnsafePatchId>);
+pub struct RevAppliedIterator<'a, T: Transaction + 'a>(RevCursor<'a, T, ApplyTimestamp, PatchId>);
 
 impl<'a, T: Transaction + 'a> Iterator for RevAppliedIterator<'a, T> {
-    type Item = (ApplyTimestamp, &'a PatchId);
+    type Item = (ApplyTimestamp, PatchId);
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some((k, v)) = self.0.next() {
-            unsafe { Some((k, PatchId::from_unsafe(v))) }
-        } else {
-            None
-        }
+        self.0.next()
     }
 }
 
-pub struct AppliedIterator<'a, T: Transaction + 'a>(Cursor<'a, T, ApplyTimestamp, UnsafePatchId>);
+pub struct AppliedIterator<'a, T: Transaction + 'a>(Cursor<'a, T, ApplyTimestamp, PatchId>);
 
 impl<'a, T: Transaction + 'a> Iterator for AppliedIterator<'a, T> {
-    type Item = (ApplyTimestamp, &'a PatchId);
+    type Item = (ApplyTimestamp, PatchId);
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some((k, v)) = self.0.next() {
-            unsafe { Some((k, PatchId::from_unsafe(v))) }
-        } else {
-            None
-        }
+        self.0.next()
     }
 }
 
@@ -1404,41 +1381,37 @@ impl<'a, T: Transaction + 'a> Iterator for InodesIterator<'a, T> {
     }
 }
 
-pub struct InternalIterator<'a, T: Transaction + 'a>(Cursor<'a, T, UnsafeHash, UnsafePatchId>);
+pub struct InternalIterator<'a, T: Transaction + 'a>(Cursor<'a, T, UnsafeHash, PatchId>);
 
 impl<'a, T: Transaction + 'a> Iterator for InternalIterator<'a, T> {
-    type Item = (HashRef<'a>, &'a PatchId);
+    type Item = (HashRef<'a>, PatchId);
     fn next(&mut self) -> Option<Self::Item> {
         if let Some((k, v)) = self.0.next() {
-            unsafe { Some((HashRef::from_unsafe(k), PatchId::from_unsafe(v))) }
+            unsafe { Some((HashRef::from_unsafe(k), v)) }
         } else {
             None
         }
     }
 }
-pub struct ExternalIterator<'a, T: Transaction + 'a>(Cursor<'a, T, UnsafePatchId, UnsafeHash>);
+pub struct ExternalIterator<'a, T: Transaction + 'a>(Cursor<'a, T, PatchId, UnsafeHash>);
 
 impl<'a, T: Transaction + 'a> Iterator for ExternalIterator<'a, T> {
-    type Item = (&'a PatchId, HashRef<'a>);
+    type Item = (PatchId, HashRef<'a>);
     fn next(&mut self) -> Option<Self::Item> {
         if let Some((k, v)) = self.0.next() {
-            unsafe { Some((PatchId::from_unsafe(k), HashRef::from_unsafe(v))) }
+            unsafe { Some((k, HashRef::from_unsafe(v))) }
         } else {
             None
         }
     }
 }
 
-pub struct RevdepIterator<'a, T: Transaction + 'a>(Cursor<'a, T, UnsafePatchId, UnsafePatchId>);
+pub struct RevdepIterator<'a, T: Transaction + 'a>(Cursor<'a, T, PatchId, PatchId>);
 
 impl<'a, T: Transaction + 'a> Iterator for RevdepIterator<'a, T> {
-    type Item = (&'a PatchId, &'a PatchId);
+    type Item = (PatchId, PatchId);
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some((k, v)) = self.0.next() {
-            unsafe { Some((PatchId::from_unsafe(k), PatchId::from_unsafe(v))) }
-        } else {
-            None
-        }
+        self.0.next()
     }
 }
 
@@ -1570,11 +1543,10 @@ impl<U: Transaction, R> T<U, R> {
 
     pub fn iter_patches<'a>(&'a self,
                             branch: &'a Branch,
-                            key: Option<&PatchId>)
+                            key: Option<PatchId>)
                             -> PatchesIterator<'a, U> {
 
-        PatchesIterator(self.txn.iter(&branch.patches,
-                                      key.map(|k| (k.to_unsafe(), None))))
+        PatchesIterator(self.txn.iter(&branch.patches, key.map(|k| (k, None))))
     }
 
     pub fn rev_iter_applied<'a>(&'a self,
@@ -1616,23 +1588,23 @@ impl<U: Transaction, R> T<U, R> {
                                      key.map(|(k, v)| (k.to_unsafe(), v.map(|v| v.to_unsafe())))))
     }
     pub fn iter_external<'a>(&'a self,
-                             key: Option<(&PatchId, Option<HashRef>)>)
+                             key: Option<(PatchId, Option<HashRef>)>)
                              -> ExternalIterator<'a, U> {
         ExternalIterator(self.txn.iter(&self.dbs.external,
-                                       key.map(|(k, v)| (k.to_unsafe(), v.map(|v| v.to_unsafe())))))
+                                       key.map(|(k, v)| (k, v.map(|v| v.to_unsafe())))))
     }
     pub fn iter_internal<'a>(&'a self,
-                             key: Option<(HashRef, Option<&PatchId>)>)
+                             key: Option<(HashRef, Option<PatchId>)>)
                              -> InternalIterator<'a, U> {
         InternalIterator(self.txn.iter(&self.dbs.internal,
-                                       key.map(|(k, v)| (k.to_unsafe(), v.map(|v| v.to_unsafe())))))
+                                       key.map(|(k, v)| (k.to_unsafe(), v))))
     }
 
     pub fn iter_revdep<'a>(&'a self,
                            key: Option<(&PatchId, Option<&PatchId>)>)
                            -> RevdepIterator<'a, U> {
         RevdepIterator(self.txn.iter(&self.dbs.revdep,
-                                     key.map(|(k, v)| (k.to_unsafe(), v.map(|v| v.to_unsafe())))))
+                                     key.map(|(x, y)| (*x, y.cloned()))))
     }
 
     pub fn iter_contents<'a>(&'a self,
@@ -1672,41 +1644,37 @@ impl<U: Transaction, R> T<U, R> {
         }
     }
 
-    pub fn get_internal<'a>(&'a self, key: HashRef) -> Option<&'a PatchId> {
+    pub fn get_internal(&self, key: HashRef) -> Option<PatchId> {
         match key {
-            HashRef::None => Some(P_ROOT_PATCH_ID),
+            HashRef::None => Some(ROOT_PATCH_ID),
             h => {
                 self.txn
                     .get(&self.dbs.internal, h.to_unsafe(), None)
-                    .map(|e| unsafe { PatchId::from_unsafe(e) })
             }
         }
     }
     pub fn get_external<'a>(&'a self, key: &PatchId) -> Option<HashRef<'a>> {
         self.txn
-            .get(&self.dbs.external, key.to_unsafe(), None)
+            .get(&self.dbs.external, *key, None)
             .map(|e| unsafe { HashRef::from_unsafe(e) })
     }
     pub fn get_patch<'a>(&'a self,
                          patch_set: &PatchSet,
-                         patchid: &PatchId)
+                         patch_id: &PatchId)
                          -> Option<ApplyTimestamp> {
         self.txn
             .get(patch_set,
-                 patchid.to_unsafe(),
+                 *patch_id,
                  None)
     }
-    pub fn get_revdep<'a>(&'a self,
-                          patch: &PatchId,
-                          dep: Option<&PatchId>)
-                          -> Option<&'a PatchId> {
+    pub fn get_revdep<'a>(&self,
+                          patch_id: &PatchId,
+                          dep: Option<PatchId>)
+                          -> Option<PatchId> {
 
-        self.txn
-            .get(&self.dbs.revdep,
-                 patch.to_unsafe(),
-                 dep.map(|e| e.to_unsafe()))
-            .map(|e| unsafe { PatchId::from_unsafe(e) })
+        self.txn.get(&self.dbs.revdep, *patch_id, dep)
     }
+
     pub fn debug<W>(&self, branch_name: &str, w: &mut W)
         where W: std::io::Write
     {
@@ -1889,7 +1857,7 @@ impl<'env, R: rand::Rng> MutTxn<'env, R> {
         Ok(try!(self.txn.put(&mut self.rng,
                              &mut self.dbs.internal,
                              key.to_unsafe(),
-                             value.to_unsafe())))
+                             *value)))
     }
     pub fn del_internal(&mut self, key: HashRef) -> Result<bool, Error> {
         Ok(self.txn.del(&mut self.rng,
@@ -1902,13 +1870,13 @@ impl<'env, R: rand::Rng> MutTxn<'env, R> {
     pub fn put_external(&mut self, key: &PatchId, value: HashRef) -> Result<bool, Error> {
         Ok(try!(self.txn.put(&mut self.rng,
                              &mut self.dbs.external,
-                             key.to_unsafe(),
+                             *key,
                              value.to_unsafe())))
     }
     pub fn del_external(&mut self, key: &PatchId) -> Result<bool, Error> {
         Ok(self.txn.del(&mut self.rng,
                         &mut self.dbs.external,
-                        key.to_unsafe(),
+                        *key,
                         None)?)
     }
 
@@ -1916,38 +1884,38 @@ impl<'env, R: rand::Rng> MutTxn<'env, R> {
     pub fn put_patches(&mut self, branch: &mut PatchSet, value: &PatchId, time: ApplyTimestamp) -> Result<bool, Error> {
         Ok(try!(self.txn.put(&mut self.rng,
                              branch,
-                             value.to_unsafe(),
+                             *value,
                              time)))
     }
     pub fn del_patches(&mut self, branch: &mut PatchSet, value: &PatchId) -> Result<bool, Error> {
         Ok(try!(self.txn.del(&mut self.rng,
                              branch,
-                             value.to_unsafe(),
+                             *value,
                              None)))
     }
     pub fn put_revpatches(&mut self, branch: &mut RevPatchSet, time: ApplyTimestamp, value: &PatchId) -> Result<bool, Error> {
         Ok(try!(self.txn.put(&mut self.rng,
                              branch,
                              time,
-                             value.to_unsafe())))
+                             *value)))
     }
     pub fn del_revpatches(&mut self, revbranch: &mut RevPatchSet, timestamp: ApplyTimestamp, value: &PatchId) -> Result<bool, Error> {
         Ok(try!(self.txn.del(&mut self.rng,
                              revbranch,
                              timestamp,
-                             Some(value.to_unsafe()))))
+                             Some(*value))))
     }
     pub fn put_revdep(&mut self, patch: &PatchId, revdep: &PatchId) -> Result<bool, Error> {
         Ok(try!(self.txn.put(&mut self.rng,
                              &mut self.dbs.revdep,
-                             patch.to_unsafe(),
-                             revdep.to_unsafe())))
+                             *patch,
+                             *revdep)))
     }
     pub fn del_revdep(&mut self, patch: &PatchId, revdep: Option<&PatchId>) -> Result<bool, Error> {
         Ok(try!(self.txn.del(&mut self.rng,
                              &mut self.dbs.revdep,
-                             patch.to_unsafe(),
-                             revdep.map(|e| e.to_unsafe()))))
+                             *patch,
+                             revdep.cloned())))
     }
 
     pub fn alloc_value(&mut self, slice: &[u8]) -> Result<UnsafeValue, Error> {

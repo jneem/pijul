@@ -273,7 +273,7 @@ impl<'a> Session<'a> {
                 let txn = repo.txn_begin()?;
                 Ok(if let Some(branch) = txn.get_branch(&branch) {
                     txn.iter_patches(&branch, None)
-                        .map(|(hash, s)| (txn.get_external(hash).unwrap().to_owned(), s))
+                        .map(|(hash, s)| (txn.get_external(&hash).unwrap().to_owned(), s))
                         .collect()
                 } else {
                     HashSet::new()
@@ -515,7 +515,7 @@ impl<'a> Session<'a> {
             let txn = repo.txn_begin()?;
             if let Some(branch) = txn.get_branch(&local_branch) {
                 txn.iter_patches(&branch, None)
-                    .map(|(hash, s)| (txn.get_external(hash).unwrap().to_owned(), s))
+                    .map(|(hash, s)| (txn.get_external(&hash).unwrap().to_owned(), s))
                     .collect()
             } else {
                 HashSet::new()
@@ -560,7 +560,7 @@ impl<'a> Session<'a> {
             let txn = repo.txn_begin()?;
             if let Some(branch) = txn.get_branch(&from_branch) {
                 txn.iter_patches(&branch, None)
-                    .map(|(hash, s)| (txn.get_external(hash).unwrap().to_owned(), s))
+                    .map(|(hash, s)| (txn.get_external(&hash).unwrap().to_owned(), s))
                     .collect()
             } else {
                 HashSet::new()

@@ -18,8 +18,8 @@ impl<'env, T: rand::Rng> MutTxn<'env, T> {
 
         // Check that the branch has no patch that depends on this one.
         assert!(self.iter_revdep(Some((patch_id, None)))
-                .take_while(|&(p, _)| p == patch_id)
-                .all(|(_, p)| self.get_patch(&branch.patches, p).is_none()));
+                .take_while(|&(p, _)| p == *patch_id)
+                .all(|(_, p)| self.get_patch(&branch.patches, &p).is_none()));
 
         let mut moves_newnames: HashSet<Key<PatchId>> = HashSet::new();
         let mut moves = Vec::new();

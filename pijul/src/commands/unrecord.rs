@@ -92,10 +92,10 @@ pub fn run(args: &Params) -> Result<(), Error> {
                         patches_.insert(h.to_owned(), patch);
 
                         if let Some(internal) = txn.get_internal(h.as_ref()) {
-                            for (_, revdep) in txn.iter_revdep(Some((internal, None))).take_while(|&(q, _)| q == internal) {
+                            for (_, revdep) in txn.iter_revdep(Some((&internal, None))).take_while(|&(q, _)| q == internal) {
                                 // If the branch has patch revdep.
-                                if txn.get_patch(&branch.patches, revdep).is_some() {
-                                    let ext = txn.get_external(revdep).unwrap();
+                                if txn.get_patch(&branch.patches, &revdep).is_some() {
+                                    let ext = txn.get_external(&revdep).unwrap();
                                     let patch = load_patch(repo_root, ext);
                                     patches_.insert(ext.to_owned(), patch);
                                 }
@@ -112,7 +112,7 @@ pub fn run(args: &Params) -> Result<(), Error> {
                 let mut patches:Vec<_> = txn.rev_iter_applied(&branch, None)
                     .map(|(t, h)| {
 
-                        let ext = txn.get_external(h).unwrap();
+                        let ext = txn.get_external(&h).unwrap();
                         let patch = load_patch(repo_root, ext);
                         (ext.to_owned(), patch, t)
 

@@ -70,12 +70,12 @@ pub fn run(params: &mut Params) -> Result<(), Error> {
             if let Some(branch) = txn.get_branch(&branch_name) {
                 if params.hash_only {
                     for (s, hash) in txn.iter_applied(&branch, None) {
-                        let hash_ext = txn.get_external(hash).unwrap();
+                        let hash_ext = txn.get_external(&hash).unwrap();
                         println!("{}:{}", hash_ext.to_base64(URL_SAFE), s)
                     }
                 } else {
                     for (_, hash) in txn.rev_iter_applied(&branch, None) {
-                        let hash_ext = txn.get_external(hash).unwrap();
+                        let hash_ext = txn.get_external(&hash).unwrap();
                         let patch = read_patch_nochanges(&target, hash_ext)?;
                         ask::print_patch_descr(&hash_ext.to_owned(), &patch)
                     }

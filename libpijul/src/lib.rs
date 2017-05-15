@@ -87,8 +87,8 @@ impl<'env, T: rand::Rng> backend::MutTxn<'env, T> {
 
         let mut file = std::fs::File::create(&changes_file)?;
         file.write_all(&branch_id.as_bytes())?;
-        for (s, hash) in self.iter_applied(&branch, None) {
-            let hash_ext = self.get_external(hash).unwrap();
+        for (s, patch_id) in self.iter_applied(&branch, None) {
+            let hash_ext = self.get_external(&patch_id).unwrap();
             writeln!(file, "{}:{}", hash_ext.to_base64(URL_SAFE), s)?
         }
         Ok(())
@@ -96,7 +96,7 @@ impl<'env, T: rand::Rng> backend::MutTxn<'env, T> {
 
     pub fn branch_patches(&mut self, branch: &Branch) -> HashSet<(backend::Hash, ApplyTimestamp)> {
         self.iter_patches(branch, None)
-            .map(|(patch, time)| (self.external_hash(patch).to_owned(), time))
+            .map(|(patch_id, time)| (self.external_hash(&patch_id).to_owned(), time))
             .collect()
     }
 
