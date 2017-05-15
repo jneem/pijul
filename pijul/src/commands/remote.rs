@@ -661,7 +661,7 @@ pub fn parse_remote<'a>(remote_id: &'a str,
                         base_path: Option<&'a Path>)
                         -> Remote<'a> {
     let ssh = Regex::new(r"^([^:]*):(.*)$").unwrap();
-    let uri = Regex::new(r"^([:alpha:]*)://(.*)$").unwrap();
+    let uri = Regex::new(r"^([[:alpha:]]*)://(.*)$").unwrap();
     if uri.is_match(remote_id) {
         let cap = uri.captures(remote_id).unwrap();
         if cap.get(1).unwrap().as_str() == "file" {
