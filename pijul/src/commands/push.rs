@@ -1,9 +1,8 @@
 use clap::{SubCommand, ArgMatches, Arg};
 
 use error::Error;
-use commands::{StaticSubcommand, remote, get_wd, default_explain};
-use std::path::Path;
-use libpijul::fs_representation::{find_repo_root, read_patch};
+use commands::{BasicOptions, StaticSubcommand, remote, default_explain};
+use libpijul::fs_representation::read_patch;
 use libpijul::DEFAULT_BRANCH;
 use meta::{Meta, Repository};
 use super::ask;
@@ -43,7 +42,6 @@ pub fn invocation() -> StaticSubcommand {
 
 #[derive(Debug)]
 pub struct Params<'a> {
-    pub repository: Option<&'a Path>,
     pub remote_id: Option<&'a str>,
     pub yes_to_all: bool,
     pub set_default: bool,
@@ -52,11 +50,9 @@ pub struct Params<'a> {
     pub remote_branch: &'a str,
 }
 
-pub fn parse_args<'a>(args: &'a ArgMatches) -> Params<'a> {
-    let repository = args.value_of("repository").and_then(|x| Some(Path::new(x)));
+fn parse_args<'a>(args: &'a ArgMatches) -> Params<'a> {
     let remote_id = args.value_of("remote");
     Params {
-        repository: repository,
         remote_id: remote_id,
         yes_to_all: args.is_present("all"),
         set_default: args.is_present("set-default"),
@@ -66,60 +62,56 @@ pub fn parse_args<'a>(args: &'a ArgMatches) -> Params<'a> {
     }
 }
 
-pub fn run(args: &Params) -> Result<(), Error> {
-    let wd = try!(get_wd(args.repository));
-    match find_repo_root(&wd) {
-        None => return Err(Error::NotInARepository),
-        Some(ref r) => {
-            let meta = Meta::load(r);
-            let mut savable = false;
-            let remote = {
-                if let Some(remote_id) = args.remote_id {
-                    savable = true;
-                    remote::parse_remote(remote_id, args.port, None)
-                } else {
-                    match meta.pull {
-                        Some(Repository::SSH { ref address, ref port }) => {
-                            remote::parse_remote(address, Some(*port), Some(r))
-                        }
-                        Some(Repository::String(ref host)) => {
-                            remote::parse_remote(host, None, Some(r))
-                        }
-                        None => return Err(Error::MissingRemoteRepository),
-                    }
+pub fn run(arg_matches: &ArgMatches) -> Result<(), Error> {
+    let opts = BasicOptions::from_args(arg_matches)?;
+    let args = parse_args(arg_matches);
+    let meta = Meta::load(&opts.repo_root);
+    let mut savable = false;
+    let remote = {
+        if let Some(remote_id) = args.remote_id {
+            savable = true;
+            remote::parse_remote(remote_id, args.port, None)
+        } else {
+            match meta.pull {
+                Some(Repository::SSH { ref address, ref port }) => {
+                    remote::parse_remote(address, Some(*port), Some(&opts.repo_root))
                 }
-            };
-            debug!("remote: {:?}", remote);
-            let mut session = try!(remote.session());
-            let pushable =
-                try!(session.pushable_patches(args.local_branch, args.remote_branch, r));
-            let pushable = if !args.yes_to_all {
-                let mut patches = Vec::new();
-                // let patch_dir = patches_dir(r);
-                let mut pushable:Vec<_> = pushable.into_iter().collect();
-                pushable.sort_by(|&(_, a), &(_, b)| a.cmp(&b));
-                for &(ref i, _) in pushable.iter() {
-                    patches.push((i.clone(), read_patch(r, i.as_ref())?))
+                Some(Repository::String(ref host)) => {
+                    remote::parse_remote(host, None, Some(&opts.repo_root))
                 }
-                try!(ask::ask_patches(ask::Command::Push, &patches))
-            } else {
-                pushable.into_iter().map(|(h, _)| h).collect()
-            };
-
-            try!(session.push(r, args.remote_branch, &pushable));
-            if args.set_default && savable {
-                if let Some(remote_id) = args.remote_id {
-                    let push = if let Some(p) = args.port {
-                        Repository::SSH { address: remote_id.to_string(), port: p }
-                    } else {
-                        Repository::String(remote_id.to_string())
-                    };
-                    Meta::save_push(r, push)?;
-                }
+                None => return Err(Error::MissingRemoteRepository),
             }
-            Ok(())
+        }
+    };
+    debug!("remote: {:?}", remote);
+    let mut session = try!(remote.session());
+    let pushable =
+        try!(session.pushable_patches(args.local_branch, args.remote_branch, &opts.repo_root));
+    let pushable = if !args.yes_to_all {
+        let mut patches = Vec::new();
+        // let patch_dir = patches_dir(r);
+        let mut pushable:Vec<_> = pushable.into_iter().collect();
+        pushable.sort_by(|&(_, a), &(_, b)| a.cmp(&b));
+        for &(ref i, _) in pushable.iter() {
+            patches.push((i.clone(), read_patch(&opts.repo_root, i.as_ref())?))
+        }
+        try!(ask::ask_patches(ask::Command::Push, &patches))
+    } else {
+        pushable.into_iter().map(|(h, _)| h).collect()
+    };
+
+    try!(session.push(&opts.repo_root, args.remote_branch, &pushable));
+    if args.set_default && savable {
+        if let Some(remote_id) = args.remote_id {
+            let push = if let Some(p) = args.port {
+                Repository::SSH { address: remote_id.to_string(), port: p }
+            } else {
+                Repository::String(remote_id.to_string())
+            };
+            Meta::save_push(&opts.repo_root, push)?;
         }
     }
+    Ok(())
 }
 
 

@@ -1,12 +1,8 @@
 use clap::{SubCommand, ArgMatches, Arg};
-
-use super::{StaticSubcommand, set_current_branch, get_wd, default_explain};
-use error::Error;
-use std::path::Path;
-
-use libpijul::{Repository, DEFAULT_BRANCH};
-use libpijul::fs_representation::{pristine_dir, find_repo_root};
 use rand;
+
+use error::Error;
+use super::{BasicOptions, StaticSubcommand, default_explain, set_current_branch};
 
 pub fn invocation() -> StaticSubcommand {
     return SubCommand::with_name("fork")
@@ -28,45 +24,22 @@ pub fn invocation() -> StaticSubcommand {
         )
 }
 
-#[derive(Debug)]
-pub struct Params<'a> {
-    pub repository: Option<&'a Path>,
-    pub branch: &'a str,
-    pub to: &'a str,
-}
+pub fn run(args: &ArgMatches) -> Result<(), Error> {
+    let opts = BasicOptions::from_args(args)?;
+    let to = args.value_of("to").unwrap();
+    let repo = opts.open_repo()?;
+    let mut txn = repo.mut_txn_begin(rand::thread_rng())?;
 
-
-pub fn parse_args<'a>(args: &'a ArgMatches) -> Params<'a> {
-    Params {
-        repository: args.value_of("repository").map(|x| Path::new(x)),
-        branch: args.value_of("branch").unwrap_or(DEFAULT_BRANCH),
-        to: args.value_of("to").unwrap()
-    }
-}
-
-pub fn run<'a>(args: &Params<'a>) -> Result<(), Error> {
-    debug!("args {:?}", args);
-    let wd = try!(get_wd(args.repository));
-    match find_repo_root(&wd) {
-        None => return Err(Error::NotInARepository),
-        Some(ref repo_root) => {
-
-            let pristine_dir = pristine_dir(repo_root);
-            let repo = try!(Repository::open(&pristine_dir, None).map_err(Error::Repository));
-            let mut txn = repo.mut_txn_begin(rand::thread_rng())?;
-
-            if !txn.has_branch(args.to) {
-                let branch = txn.open_branch(&args.branch)?;
-                let new_branch = txn.fork(&branch, args.to)?;
-                try!(txn.commit_branch(branch));
-                try!(txn.commit_branch(new_branch));
-                try!(txn.commit());
-                set_current_branch(&repo_root, args.to)?;
-                Ok(())
-            } else {
-                Err(Error::BranchAlreadyExists)
-            }
-        }
+    if !txn.has_branch(to) {
+        let branch = txn.open_branch(&opts.branch())?;
+        let new_branch = txn.fork(&branch, to)?;
+        try!(txn.commit_branch(branch));
+        try!(txn.commit_branch(new_branch));
+        try!(txn.commit());
+        set_current_branch(&opts.repo_root, to)?;
+        Ok(())
+    } else {
+        Err(Error::BranchAlreadyExists)
     }
 }
 

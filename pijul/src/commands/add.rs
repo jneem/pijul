@@ -13,19 +13,13 @@ pub fn invocation() -> StaticSubcommand {
             .help("Files to add to the repository.")
             .required(true))
         .arg(Arg::with_name("repository")
+            .takes_value(true)
             .long("repository")
-            .help("Repository where to add files.")
-            .takes_value(true));
+            .help("Add the files to this repository. Defaults to the repository containing \
+                   the current directory."));
 }
 
-pub type Params<'a> = fs_operation::Params<'a>;
-
-pub fn parse_args<'a>(args: &'a ArgMatches) -> Params<'a> {
-    return fs_operation::parse_args(args);
-}
-
-
-pub fn run(args: &Params) -> Result<(), Error> {
+pub fn run(args: &ArgMatches) -> Result<(), Error> {
     fs_operation::run(args, Operation::Add)
 }
 

@@ -1,14 +1,12 @@
 use clap::{SubCommand, ArgMatches, Arg};
-use commands::{StaticSubcommand, default_explain};
+use commands::{BasicOptions, StaticSubcommand, default_explain};
 use libpijul::{Hash};
-use libpijul::fs_representation::{find_repo_root, patches_dir};
+use libpijul::fs_representation::patches_dir;
 
 use error::Error;
 use rustc_serialize::base64::{ToBase64, URL_SAFE};
-use std::path::Path;
 use std::io::{stdout, copy};
 use std::fs::File;
-use super::get_wd;
 
 pub fn invocation() -> StaticSubcommand {
     return SubCommand::with_name("patch")
@@ -32,31 +30,16 @@ pub fn invocation() -> StaticSubcommand {
              }));
 }
 
-pub struct Params<'a> {
-    pub repository: Option<&'a Path>,
-    pub patch: Hash
-}
-
-pub fn parse_args<'a>(args: &'a ArgMatches) -> Params<'a> {
-    Params {
-        repository: args.value_of("repository").map(Path::new),
-        patch: Hash::from_base64(args.value_of("patch").unwrap()).unwrap()
-    }
-}
-
-pub fn run(params: &mut Params) -> Result<(), Error> {
-    let wd = try!(get_wd(params.repository));
-    match find_repo_root(&wd) {
-        None => return Err(Error::NotInARepository),
-        Some(ref target) => {
-            let mut patch_path = patches_dir(target).join(&params.patch.to_base64(URL_SAFE));
-            patch_path.set_extension("gz");
-            let mut f = try!(File::open(&patch_path));
-            let mut stdout = stdout();
-            try!(copy(&mut f, &mut stdout));
-            Ok(())
-        }
-    }
+pub fn run(args: &ArgMatches) -> Result<(), Error> {
+    let opts = BasicOptions::from_args(args)?;
+    // FIXME: the second panic could unwrap
+    let patch = Hash::from_base64(args.value_of("patch").unwrap()).unwrap();
+    let mut patch_path = patches_dir(opts.repo_root).join(&patch.to_base64(URL_SAFE));
+    patch_path.set_extension("gz");
+    let mut f = try!(File::open(&patch_path));
+    let mut stdout = stdout();
+    try!(copy(&mut f, &mut stdout));
+    Ok(())
 }
 
 pub fn explain(r: Result<(), Error>) {

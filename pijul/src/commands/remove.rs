@@ -17,17 +17,9 @@ pub fn invocation() -> StaticSubcommand {
             .help("Repository to remove files from."));
 }
 
-pub type Params<'a> = fs_operation::Params<'a>;
-
-pub fn parse_args<'a>(args: &'a ArgMatches) -> Params<'a> {
-    return fs_operation::parse_args(args);
-}
-
-
-pub fn run(args: &Params) -> Result<(), error::Error> {
+pub fn run(args: &ArgMatches) -> Result<(), error::Error> {
     fs_operation::run(args, Operation::Remove)
 }
-
 
 pub fn explain(res: Result<(), error::Error>) {
     default_explain(res)

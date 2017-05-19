@@ -1,10 +1,8 @@
-use commands::{StaticSubcommand, get_wd, default_explain};
+use commands::{BasicOptions, StaticSubcommand, default_explain};
 use clap::{SubCommand, ArgMatches, Arg};
 use error;
-use libpijul::{Repository, ROOT_KEY, Branch, Txn, DEFAULT_BRANCH, Key, PatchId, Edge};
-use libpijul::fs_representation::{pristine_dir, find_repo_root};
+use libpijul::{ROOT_KEY, Branch, Txn, Key, PatchId, Edge};
 use std::path::{PathBuf, Path};
-use super::get_current_branch;
 use tar::{Header, Builder};
 use std::fs::File;
 use flate2::write::GzEncoder;
@@ -25,58 +23,31 @@ pub fn invocation() -> StaticSubcommand {
              .takes_value(true)
              .required(false))
         .arg(Arg::with_name("repository")
+             .takes_value(true)
              .long("repository")
              .help("Repository to list."));
 }
 
-pub struct Params<'a> {
-    pub repository: Option<&'a Path>,
-    pub archive_path: PathBuf,
-    pub branch: Option<&'a str>
-}
-
-pub fn parse_args<'a>(args: &'a ArgMatches) -> Params<'a> {
-    Params {
-        repository: args.value_of("repository").and_then(|x| Some(Path::new(x))),
-        archive_path: {
-            let mut path = Path::new(args.value_of("archive").unwrap()).to_path_buf();
-            path.set_extension("tar.gz");
-            path
-        },
-        branch: args.value_of("branch")
+pub fn run(args: &ArgMatches) -> Result<(), error::Error> {
+    let opts = BasicOptions::from_args(args)?;
+    let archive_path = {
+        let mut path = Path::new(args.value_of("archive").unwrap()).to_path_buf();
+        path.set_extension("tar.gz");
+        path
+    };
+    let repo = opts.open_repo()?;
+    let txn = repo.txn_begin()?;
+    if let Some(branch) = txn.get_branch(&opts.branch()) {
+        let encoder = GzEncoder::new(File::create(&archive_path)?, Compression::Best);
+        let mut archive = Builder::new(encoder);
+        let mut buffer = Vec::new();
+        let mut forward = Vec::new();
+        let mut current_path = PathBuf::new();
+        archive_rec(&txn, &branch, ROOT_KEY, &mut archive, &mut buffer, &mut forward,
+                    &mut current_path)?;
+        archive.into_inner()?.finish()?.flush()?;
     }
-}
-
-pub fn run(args: &Params) -> Result<(), error::Error> {
-    let wd = try!(get_wd(args.repository));
-    match find_repo_root(&wd) {
-        None => Err(error::Error::NotInARepository),
-        Some(ref r) => {
-            let repo_dir = pristine_dir(r);
-            let repo = Repository::open(&repo_dir, None).map_err(error::Error::Repository)?;
-
-            let branch_name = if let Some(b) = args.branch {
-                b.to_string()
-            } else if let Ok(b) = get_current_branch(r) {
-                b
-            } else {
-                DEFAULT_BRANCH.to_string()
-            };
-
-            let txn = repo.txn_begin()?;
-            if let Some(branch) = txn.get_branch(&branch_name) {
-                let encoder = GzEncoder::new(File::create(&args.archive_path)?, Compression::Best);
-                let mut archive = Builder::new(encoder);
-                let mut buffer = Vec::new();
-                let mut forward = Vec::new();
-                let mut current_path = PathBuf::new();
-                archive_rec(&txn, &branch, ROOT_KEY, &mut archive, &mut buffer, &mut forward,
-                            &mut current_path)?;
-                archive.into_inner()?.finish()?.flush()?;
-            }
-            Ok(())
-        }
-    }
+    Ok(())
 }
 
 pub fn archive_rec<W:Write>(

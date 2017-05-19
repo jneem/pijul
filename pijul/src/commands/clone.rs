@@ -1,6 +1,6 @@
 use clap::{SubCommand, ArgMatches, Arg};
 
-use commands::{init, StaticSubcommand};
+use commands::{assert_no_containing_repo, create_repo, default_explain, StaticSubcommand};
 use error::Error;
 use commands::remote::{Remote, parse_remote};
 use regex::Regex;
@@ -76,7 +76,8 @@ pub fn parse_args<'a>(args: &'a ArgMatches) -> Params<'a> {
 
 
 
-pub fn run(args: &Params) -> Result<(), Error> {
+pub fn run(args: &ArgMatches) -> Result<(), Error> {
+    let args = parse_args(args);
     debug!("{:?}", args);
     match args.from {
         Remote::Local { ref path } => {
@@ -93,10 +94,8 @@ pub fn run(args: &Params) -> Result<(), Error> {
             match args.to {
                 Remote::Local { ref path } => {
                     // This is "darcs get"
-                    try!(init::run(&init::Params {
-                        location: Some(path),
-                        allow_nested: false,
-                    }));
+                    try!(assert_no_containing_repo(path));
+                    try!(create_repo(path));
                     let mut session = try!(args.from.session());
                     let pullable:Vec<_> = try!(session.pullable_patches(
                         args.from_branch,
@@ -115,14 +114,12 @@ pub fn run(args: &Params) -> Result<(), Error> {
 
 pub fn explain(res: Result<(), Error>) {
     match res {
-        Ok(()) => (),
         Err(Error::InARepository(p)) => {
             writeln!(stderr(), "error: Cannot clone onto / into existing repository {}", p.display()).unwrap();
             exit(1)
         },
-        Err(e) => {
-            writeln!(stderr(), "error: {}", e).unwrap();
-            exit(1)
+        _ => {
+            default_explain(res)
         }
     }
 }

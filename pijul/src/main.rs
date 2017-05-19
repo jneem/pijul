@@ -35,8 +35,7 @@ macro_rules! pijul_subcommand_dispatch {
         match $p {
             $(($subcommand_name, Some(args)) =>
              {
-                 let mut params = commands::$subcommand::parse_args(args);
-                 let res = commands::$subcommand::run(&mut params);
+                 let res = commands::$subcommand::run(&args);
                  commands::$subcommand::explain(res)
              }
               ),*

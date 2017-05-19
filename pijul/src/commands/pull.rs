@@ -1,16 +1,14 @@
 use clap::{SubCommand, ArgMatches, Arg};
 
-use commands::{StaticSubcommand, default_explain};
+use commands::{BasicOptions, StaticSubcommand, default_explain};
 use error::Error;
 use std::path::Path;
 use std::fs::File;
 
-use libpijul::fs_representation::find_repo_root;
 use libpijul::patch::Patch;
 use libpijul::{Hash, DEFAULT_BRANCH, ApplyTimestamp};
 use commands::remote;
 use commands::ask::{ask_patches, Command};
-use commands::get_wd;
 use std::io::BufReader;
 
 use super::super::meta::{Meta, Repository};
@@ -22,11 +20,11 @@ pub fn invocation() -> StaticSubcommand {
         .arg(Arg::with_name("repository").help("Local repository."))
         .arg(Arg::with_name("remote_branch")
             .long("from-branch")
-            .help("The branch to pull from")
+            .help("The branch to pull from. Defaults to master.")
             .takes_value(true))
         .arg(Arg::with_name("local_branch")
             .long("to-branch")
-            .help("The branch to pull into")
+            .help("The branch to pull into. Defaults to master.")
             .takes_value(true))
         .arg(Arg::with_name("all")
             .short("a")
@@ -50,7 +48,6 @@ pub fn invocation() -> StaticSubcommand {
 
 #[derive(Debug)]
 pub struct Params<'a> {
-    pub repository: Option<&'a Path>,
     pub remote_id: Option<&'a str>,
     pub yes_to_all: bool,
     pub set_default: bool,
@@ -59,12 +56,10 @@ pub struct Params<'a> {
     pub remote_branch: &'a str,
 }
 
-pub fn parse_args<'a>(args: &'a ArgMatches) -> Params<'a> {
-    let repository = args.value_of("repository").map(Path::new);
+fn parse_args<'a>(args: &'a ArgMatches) -> Params<'a> {
     let remote_id = args.value_of("remote");
     // let remote=remote::parse_remote(&remote_id,args);
     Params {
-        repository: repository,
         remote_id: remote_id,
         yes_to_all: args.is_present("all"),
         set_default: args.is_present("set-default"),
@@ -135,38 +130,34 @@ pub fn select_patches(interactive: bool,
     }
 }
 
-pub fn run(args: &Params) -> Result<(), Error> {
+pub fn run(arg_matches: &ArgMatches) -> Result<(), Error> {
+    let opts = BasicOptions::from_args(arg_matches)?;
+    let args = parse_args(arg_matches);
     debug!("pull args {:?}", args);
-    let wd = try!(get_wd(args.repository));
-    match find_repo_root(&wd) {
-        None => return Err(Error::NotInARepository),
-        Some(ref r) => {
-            let meta = Meta::load(r);
-            let (savable, remote) = try!(get_remote(&args, &meta, r));
-            let mut session = try!(remote.session());
-            let pullable = try!(select_patches(!args.yes_to_all,
-                                               &mut session,
-                                               args.remote_branch,
-                                               args.local_branch,
-                                               r));
+    let meta = Meta::load(&opts.repo_root);
+    let (savable, remote) = try!(get_remote(&args, &meta, &opts.repo_root));
+    let mut session = try!(remote.session());
+    let pullable = try!(select_patches(!args.yes_to_all,
+                                       &mut session,
+                                       args.remote_branch,
+                                       args.local_branch,
+                                       &opts.repo_root));
 
-            // Pulling and applying
-            info!("Pulling patch {:?}", pullable);
-            try!(session.pull(r, args.local_branch, &pullable));
-            info!("Saving meta");
-            if args.set_default && savable {
-                if let Some(remote_id) = args.remote_id {
-                    let pull = if let Some(p) = args.port {
-                        Repository::SSH { address: remote_id.to_string(), port: p }
-                    } else {
-                        Repository::String(remote_id.to_string())
-                    };
-                    Meta::save_pull(r, pull)?;
-                }
-            }
-            Ok(())
+    // Pulling and applying
+    info!("Pulling patch {:?}", pullable);
+    try!(session.pull(&opts.repo_root, args.local_branch, &pullable));
+    info!("Saving meta");
+    if args.set_default && savable {
+        if let Some(remote_id) = args.remote_id {
+            let pull = if let Some(p) = args.port {
+                Repository::SSH { address: remote_id.to_string(), port: p }
+            } else {
+                Repository::String(remote_id.to_string())
+            };
+            Meta::save_pull(&opts.repo_root, pull)?;
         }
     }
+    Ok(())
 }
 
 pub fn explain(res: Result<(), Error>) {

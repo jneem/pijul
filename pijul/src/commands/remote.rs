@@ -19,11 +19,10 @@ use std::io::prelude::*;
 use std::net::ToSocketAddrs;
 use shell_escape::unix::escape;
 use std::borrow::Cow;
-use commands::init;
 use futures;
 use user;
 use thrussh;
-use commands::ask;
+use commands::{ask, assert_no_containing_repo, create_repo};
 use futures::{Future, Stream, Async, Poll};
 use tokio_core;
 use tokio_core::net::TcpStream;
@@ -493,12 +492,9 @@ impl<'a> Session<'a> {
                 Ok(())
             }
             Session::Local { path } => {
-                try!(init::run(&init::Params {
-                    location: Some(path),
-                    allow_nested: false,
-                }));
-                Ok(())
-            }
+                try!(assert_no_containing_repo(path));
+                create_repo(path)
+            },
             _ => panic!("remote init not possible"),
         }
     }
@@ -664,12 +660,12 @@ pub fn parse_remote<'a>(remote_id: &'a str,
     let uri = Regex::new(r"^([[:alpha:]]*)://(.*)$").unwrap();
     if uri.is_match(remote_id) {
         let cap = uri.captures(remote_id).unwrap();
-        if cap.get(1).unwrap().as_str() == "file" {
+        if &cap[1] == "file" {
             if let Some(a) = base_path {
-                let path = a.join(cap.get(2).unwrap().as_str());
+                let path = a.join(&cap[2]);
                 Remote::Local { path: path }
             } else {
-                let path = Path::new(cap.get(2).unwrap().as_str()).to_path_buf();
+                let path = Path::new(&cap[2]).to_path_buf();
                 Remote::Local { path: path }
             }
         } else {
