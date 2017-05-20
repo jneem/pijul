@@ -1,4 +1,13 @@
+run_only_test() {
+  if [ "$BATS_TEST_NUMBER" -ne "$1" ]; then
+    skip
+  fi
+}
+
 setup() {
+  # To run only one test, uncomment the next line.
+  # run_only_test 20
+
   # TODO: this is currently only for testing debug builds, but it should be configurable.
   export PATH="$BATS_TEST_DIRNAME/../target/debug:/usr/bin"
 
@@ -18,10 +27,22 @@ teardown() {
 }
 
 make_two_repos() {
+    make_repo "$1"
+    make_repo "$2"
+}
+
+make_repo() {
     mkdir "$1"
     pijul init "$1"
-    mkdir "$2"
-    pijul init "$2"
+}
+
+# make_single_file_repo dirname filename
+make_single_file_repo() {
+    mkdir "$1"
+    pijul init "$1"
+    make_random_file "$1"/"$2"
+    pijul add --repository "$1" "$2"
+    pijul record -a --repository "$1" -m msg -A me
 }
 
 make_random_file() {
