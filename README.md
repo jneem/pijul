@@ -1,6 +1,6 @@
 # This is a temporary fork of pijul!
 
-The real repository is [here](http://nest.pijul.com/pijul_org/pijul), but I was running into some corruption bugs.
+The real repository is [here](http://nest.pijul.com/pijul/pijul), but I was running into some corruption bugs.
 
 # Pijul
 
